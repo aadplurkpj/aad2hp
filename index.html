@@ -59,14 +59,12 @@ main{max-width:1000px;margin:0 auto;padding:28px 20px}
 .boss-deduct input{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 6px;color:var(--text);font-size:.78rem;width:72px;text-align:center;outline:none}
 .boss-deduct input:focus{border-color:var(--accent)}
 .boss-actions{display:flex;gap:6px}
-.icon-btn{width:28px;height:28px;border-radius:7px;border:none;font-size:1rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
-.icon-btn-del{background:rgba(255,60,60,.12);color:#ff5f5f}
-.icon-btn-del:hover{background:rgba(255,60,60,.28)}
-.icon-btn-add{background:var(--accent-dim);color:var(--accent)}
-.icon-btn-add:hover{background:rgba(130,217,0,.28)}
+.icon-btn{width:28px;height:28px;border-radius:7px;border:1px solid var(--border);font-size:1rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;background:var(--surface2);color:var(--muted)}
+.icon-btn-del:hover{background:var(--border);color:var(--text)}
+.icon-btn-add:hover{background:var(--border);color:var(--text)}
 
 /* ── URL 輸入區（初始） ── */
-.url-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:28px;display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.url-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:28px;display:flex;flex-direction:column;gap:12px;align-items:center;text-align:center}
 .url-section label{font-size:.8rem;font-weight:600;color:var(--muted)}
 .url-big{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:inherit;font-size:.88rem;outline:none;width:100%;max-width:520px}
 .url-big:focus{border-color:var(--accent)}
@@ -289,7 +287,7 @@ function renderBossSetup(){
           <button class="icon-btn icon-btn-del" onclick="removeBoss(${i})" title="刪除">－</button>
           <button class="icon-btn icon-btn-add" onclick="addBoss(${i})"    title="新增">＋</button>
         </div>
-        <label>預扣</label>
+        <label>NPC預扣</label>
         <input type="number" value="${esc(b.deduct||'')}" oninput="setF(${i},'deduct',this.value)">
       </div>
     </div>
