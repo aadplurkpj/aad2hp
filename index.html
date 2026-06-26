@@ -392,23 +392,16 @@ function normalize(s){
 }
 
 function parseContent(html){
-  // multi-digit range dice
-  html = html.replace(
-    /<img[^>]+alt="\(dice(\d+)-(\d+)\)"[^>]+rnd="(\d+)"[^>]*>((?:<img[^>]+alt=""[^>]+rnd="\d+"[^>]*>)*)/g,
-    (_,lo,hi,first,rest)=>{
-      const extra=[...rest.matchAll(/rnd="(\d+)"/g)].map(m=>m[1]);
-      return `[d${lo}-${hi}:${first+extra.join('')}]`;
-    }
-  );
-  // normal dice (any attribute order)
+  // 骰子屬性可能是 rndnum="N" 或 rnd="N"，兩者都支援
   html = html.replace(/<img[^>]+>/g, tag=>{
     const facesM = /alt="\(dice(\d+)\)"/.exec(tag);
-    const rndM   = /rnd="(\d+)"/.exec(tag);
+    // 優先抓 rndnum，其次 rnd（注意避免誤抓 rndnum 裡的 rnd）
+    const rndM = /rndnum="(\d+)"/.exec(tag) || /\brnd="(\d+)"/.exec(tag);
     if(facesM && rndM) return `[d${facesM[1]}:${rndM[1]}]`;
-    const bzzM   = /alt="\(bzzz\)"/.exec(tag);
-    const rndnM  = /rndnum="(\d+)"/.exec(tag);
-    if(bzzM && rndnM) return `[bzz:${rndnM[1]}]`;
-    const altM   = /alt="([^"]*)"/.exec(tag);
+    const bzzM  = /alt="\(bzzz?\)"/.exec(tag);
+    const bzzRnd = /rndnum="(\d+)"/.exec(tag);
+    if(bzzM && bzzRnd) return `[bzz:${bzzRnd[1]}]`;
+    const altM = /alt="([^"]*)"/.exec(tag);
     return altM ? altM[1] : '';
   });
   html = html.replace(/<br\s*\/?>/gi, '\n');
