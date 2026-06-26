@@ -452,16 +452,19 @@ function extractAttacksForFaces(content, facesNorm){
   return results;
 }
 
-function computeBossHp(b){
+function computeBossHp(b, ignoreDeathStop){
   const norm   = normalizeFaces(b.faces);
   const count  = parseInt(b.count)||0;
   const hpEach = parseInt(b.hpEach)||0;
   const deduct = parseInt(b.deduct)||0;
   if(!norm||!count||!hpEach) return null;
-  let hp = count*hpEach - deduct;
+  let hp   = count*hpEach - deduct;
+  let dead = false;
   for(const msg of allMsgs){
+    if(dead && !ignoreDeathStop) break;
     for(const dmg of extractAttacksForFaces(msg.content, norm)){
       hp -= dmg;
+      if(hp <= 0 && !dead) dead = true;
     }
   }
   return hp;
@@ -534,11 +537,11 @@ function buildBattleView(){
   });
 }
 
-function updateBattleDisplay(){
+function updateBattleDisplay(ignoreDeathStop){
   let allDead = true;
   bossData.forEach((b,i)=>{
     if(!(i in maxHpMap)) return;
-    const hp = computeBossHp(b);
+    const hp = computeBossHp(b, ignoreDeathStop);
     if(hp===null) return;
     const cv = document.getElementById('pieCanvas'+i);
     const nm = document.getElementById('pieNum'+i);
@@ -651,7 +654,7 @@ async function manualRefresh(){
   try{
     allMsgs = await fetchAllResponses(numericId);
     hideLoading();
-    updateBattleDisplay(); // 允許繼續顯示負血值，不判斷 allDead
+    updateBattleDisplay(true); // ignoreDeathStop=true，繼續累計所有傷害（可顯示負血值）
     setStatus('已刷新　自動刷新已停止（重置後可重新啟動）');
   } catch(e){
     hideLoading();
