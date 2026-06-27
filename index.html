@@ -506,7 +506,7 @@ function calcSide(expr){
   return {total,hasUnknown,hasDice};
 }
 
-// 從留言內容取出「目前HP：N」的數值
+// 從留言內容取出「目前HP：N」的數值（與原版 extractHpBonus 一致）
 function extractCurrentHp(content){
   const m = /目前HP[：:]\s*(-?\d+)/.exec(content);
   return m ? parseInt(m[1]) : null;
@@ -515,7 +515,8 @@ function extractCurrentHp(content){
 // 取出使用物品行的補血加值
 function extractItemBonus(content){
   let bonus = 0;
-  const itemMatch = /使用物品[：:]([\s\S]*?)(?=\n攻擊[：:]|$)/.exec(content);
+  const itemMatch = /使用物品[：:]([\s\S]*?)(?=
+攻擊[：:]|$)/.exec(content);
   if(itemMatch){
     (itemMatch[1].match(/[+＋](\d+)/g)||[]).forEach(mm=>{
       const n = parseInt(mm.replace(/[^\d]/g,''));
@@ -523,6 +524,19 @@ function extractItemBonus(content){
     });
   }
   return bonus;
+}
+
+// 從「目前HP：N」行取得基礎值與所有+數值（與原版相同）
+function extractHpBonus(content){
+  const hpLineMatch = /目前HP[：:][^
+]*/.exec(content);
+  if(!hpLineMatch) return {base:null, bonuses:[]};
+  const baseM = /目前HP[：:]\s*(-?\d+)/.exec(hpLineMatch[0]);
+  if(!baseM) return {base:null, bonuses:[]};
+  const base = parseInt(baseM[1]);
+  const afterBase = hpLineMatch[0].slice(baseM.index + baseM[0].length);
+  const bonuses = (afterBase.match(/[+＋]\s*(\d+)/g)||[]).map(s=>parseInt(s.replace(/[^\d]/g,'')));
+  return {base, bonuses};
 }
 
 // 計算某用戶在某則留言時的即時HP（依時間順序累計被打傷害）
@@ -784,6 +798,9 @@ async function startBattle(){
   document.getElementById('battleSection').classList.add('active');
   document.getElementById('manualBtn').disabled=false;
 
+  // 讀取角色編號輸入
+  charCodes = parseCharCodes(document.getElementById('charInput').value);
+
   buildBattleView();
   const done = updateBattleDisplay();
   refreshCharCards();
@@ -954,28 +971,49 @@ function calcCharCard(code, msgs){
   const msgAlive = buildUserHpMap(); // 重用全域 userHp 計算
   const allMsgsIdx = new Map(allMsgs.map((m,i)=>[m.id,i]));
 
-  let firstHpSet = false;
-  for(const msg of myMsgs){
-    const content = getMsgContent(msg.id, msg.content);
-    const {atk, def} = calcMsgDamage(content);
+  let firstValidIdx = -1;
+  // 找第一則有效留言（此角色卡片的）
+  for(let i=0; i<myMsgs.length; i++){
+    if(firstValidIdx === -1) firstValidIdx = i;
+    break;
+  }
 
-    // 起始HP：第一則留言的目前HP
-    if(!firstHpSet){
-      const hpVal = extractCurrentHp(content);
-      if(hpVal !== null){ hp = hpVal; firstHpSet = true; }
+  myMsgs.forEach((msg, idx)=>{
+    const content = getMsgContent(msg.id, msg.content);
+
+    if(idx === firstValidIdx){
+      // 第一則：從「目前HP：N」取起始值，含後面所有+數值
+      const hpInfo = extractHpBonus(content);
+      if(hpInfo.base !== null){
+        hp = hpInfo.base + hpInfo.bonuses.reduce((a,b)=>a+b, 0);
+      }
     } else if(hp !== null){
-      // 後續留言補血判斷（使用物品行）
-      hp += extractItemBonus(content);
+      const hpInfo = extractHpBonus(content);
+      if(hpInfo.base !== null){
+        const hpBonus = hpInfo.bonuses.reduce((a,b)=>a+b, 0);
+        // 判斷補血 or 裝備展示
+        if(hpBonus > 0 && Math.abs(hpInfo.base - hp) <= Math.abs(hpInfo.base + hpBonus - hp)){
+          hp += hpBonus; // 補血
+        } else {
+          hp += extractItemBonus(content); // 使用物品補血
+        }
+      } else {
+        hp += extractItemBonus(content);
+      }
     }
 
+    // 計算本則攻擊輸出與被打傷害
+    const {atk, def} = calcMsgDamage(content);
+
     // 有效輸出：只有角色存活時才計
-    const idx = allMsgsIdx.get(msg.id);
-    const alive = idx !== undefined ? (msgAlive.get(idx) !== false) : true;
+    const allIdx = allMsgsIdx.get(msg.id);
+    const alive = allIdx !== undefined ? (msgAlive.get(allIdx) !== false) : true;
     if(alive) totalAtk += atk;
 
     // 扣被打傷害
     if(hp !== null) hp -= def;
-  }
+  });
+
   return {code, msgs: myMsgs, hp, totalAtk};
 }
 
