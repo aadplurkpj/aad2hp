@@ -1,4 +1,4 @@
-ㄏ<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
@@ -112,42 +112,6 @@ main{max-width:1000px;margin:0 auto;padding:28px 20px}
 .intro-logo img{width:100%;height:auto;display:block}
 .intro-text{flex:1;min-width:200px;display:flex;flex-direction:column;gap:8px;padding-left:24px}
 .intro-text p{font-size:.82rem;color:#82D900;line-height:1.7;margin:0}
-
-/* ── 角色編號輸入區 ── */
-.char-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:28px;display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center}
-.char-section label{font-size:.8rem;font-weight:600;color:var(--muted)}
-.char-big{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:inherit;font-size:.88rem;outline:none;width:100%;max-width:740px}
-.char-big:focus{border-color:var(--accent)}
-.char-hint{font-size:.72rem;color:var(--muted)}
-
-/* ── 角色卡片區 ── */
-.char-cards-wrap{margin-top:32px}
-.char-cards-title{font-size:.85rem;font-weight:700;color:var(--muted);letter-spacing:.06em;margin-bottom:16px;text-align:center}
-.char-cards-grid{display:flex;flex-direction:column;gap:20px}
-
-.char-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
-.char-card-header{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--border)}
-.char-avatar{width:48px;height:48px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:#fff;letter-spacing:.03em;text-align:center;line-height:1.2}
-.char-info{flex:1;min-width:0}
-.char-code{font-size:.95rem;font-weight:700;margin-bottom:2px}
-.char-stats{display:flex;gap:16px;font-size:.78rem;color:var(--muted)}
-.char-stat-val{font-weight:700;margin-left:4px}
-.char-stat-hp{color:var(--accent)}
-.char-stat-dmg{color:#7eb3ff}
-.char-stat-dead{color:var(--red)}
-
-.char-msgs{padding:0 16px 14px}
-.char-msg{border-top:1px solid var(--border);padding:10px 0;font-size:.78rem;line-height:1.6;color:var(--text);white-space:pre-wrap;word-break:break-all;cursor:text;position:relative}
-.char-msg:first-child{border-top:none}
-.char-msg.excluded{opacity:.4}
-.char-msg-time{font-size:.68rem;color:var(--muted);margin-bottom:4px}
-.char-msg-body{outline:none}
-.char-msg-body:focus{background:rgba(130,217,0,.05);border-radius:4px;padding:2px 4px}
-.dice-tag{color:#82D900;font-weight:700}
-.bzz-tag{color:#ff9f43;font-weight:700}
-.bzz-red{color:#ff4f4f;font-weight:700}
-.atk-sum{color:#7eb3ff;font-weight:700;background:rgba(126,179,255,.1);border-radius:3px;padding:0 3px}
-.def-sum{color:#aaa;font-weight:700}
 </style>
 </head>
 <body>
@@ -201,21 +165,10 @@ main{max-width:1000px;margin:0 auto;padding:28px 20px}
     <div class="setup-grid" id="bossGrid"></div>
   </div>
 
-    <!-- 角色編號輸入 -->
-    <div class="char-section" id="charSection">
-      <label>角色編號</label>
-      <input class="char-big" id="charInput" type="text" placeholder="D234-1,D223-1（多個用逗號或，分隔）" value="">
-      <div class="char-hint">輸入要自動抓取的角色編號，開始對戰後會顯示包含該編號的回覆卡片</div>
-    </div>
   <!-- 對戰區 -->
   <div class="battle-section" id="battleSection">
     <div class="pie-grid" id="pieGrid"></div>
     <div class="status-bar" id="statusBar"></div>
-    <!-- 角色卡片 -->
-    <div class="char-cards-wrap" id="charCardsWrap" style="display:none">
-      <div class="char-cards-title">角色戰況</div>
-      <div class="char-cards-grid" id="charCardsGrid"></div>
-    </div>
     <button class="btn-manual" id="manualBtn" onclick="manualRefresh()">手動刷新戰況</button>
   </div>
 </main>
@@ -229,8 +182,6 @@ main{max-width:1000px;margin:0 auto;padding:28px 20px}
 const WORKER_URL = 'https://aad2026hp.aadop2021.workers.dev';
 
 let plurkIdStr  = '';   // base36 string
-let charCodes   = [];   // 角色編號陣列
-let charEdits   = {};   // {msgKey: editedContent} 人工編輯
 let numericId   = 0;
 let allMsgs     = [];   // [{content, posted_at}]
 let bossData    = [];
@@ -242,8 +193,6 @@ let autoActive  = false;
 function bKey(){ return 'bossdata_' + (plurkIdStr||'default'); }
 function tKey(){ return 'pagetitle_' + (plurkIdStr||'default'); }
 function uKey(){ return 'plurkurl_default'; }
-function cKey(){ return 'charcodes_' + (plurkIdStr||'default'); }
-function eKey(plurkId, msgId){ return 'charedit_'+plurkId+'_'+msgId; }
 
 // ═══════════════════════════════════════════
 // Init
@@ -252,9 +201,6 @@ function eKey(plurkId, msgId){ return 'charedit_'+plurkId+'_'+msgId; }
   // restore title
   const t = localStorage.getItem('pagetitle_default');
   if(t) document.getElementById('pageTitle').textContent = t;
-  // restore char codes
-  const cc = localStorage.getItem('charcodes_default');
-  if(cc){ document.getElementById('charInput').value=cc; charCodes=parseCharCodes(cc); }
   // restore url
   const u = localStorage.getItem(uKey());
   if(u){
@@ -282,8 +228,6 @@ function parseUrl(val){
     numericId  = parseInt(plurkIdStr, 36);
     loadBossData(); // reload with correct key
     renderBossSetup();
-    // restore char edits for this plurk
-    charEdits = loadCharEdits();
   } else {
     plurkIdStr = '';
     numericId  = 0;
@@ -506,7 +450,7 @@ function calcSide(expr){
   return {total,hasUnknown,hasDice};
 }
 
-// 從留言內容取出「目前HP：N」的數值（與原版 extractHpBonus 一致）
+// 從留言內容取出「目前HP：N」的數值
 function extractCurrentHp(content){
   const m = /目前HP[：:]\s*(-?\d+)/.exec(content);
   return m ? parseInt(m[1]) : null;
@@ -515,8 +459,7 @@ function extractCurrentHp(content){
 // 取出使用物品行的補血加值
 function extractItemBonus(content){
   let bonus = 0;
-  const itemMatch = /使用物品[：:]([\s\S]*?)(?=
-攻擊[：:]|$)/.exec(content);
+  const itemMatch = /使用物品[：:]([\s\S]*?)(?=\n攻擊[：:]|$)/.exec(content);
   if(itemMatch){
     (itemMatch[1].match(/[+＋](\d+)/g)||[]).forEach(mm=>{
       const n = parseInt(mm.replace(/[^\d]/g,''));
@@ -524,19 +467,6 @@ function extractItemBonus(content){
     });
   }
   return bonus;
-}
-
-// 從「目前HP：N」行取得基礎值與所有+數值（與原版相同）
-function extractHpBonus(content){
-  const hpLineMatch = /目前HP[：:][^
-]*/.exec(content);
-  if(!hpLineMatch) return {base:null, bonuses:[]};
-  const baseM = /目前HP[：:]\s*(-?\d+)/.exec(hpLineMatch[0]);
-  if(!baseM) return {base:null, bonuses:[]};
-  const base = parseInt(baseM[1]);
-  const afterBase = hpLineMatch[0].slice(baseM.index + baseM[0].length);
-  const bonuses = (afterBase.match(/[+＋]\s*(\d+)/g)||[]).map(s=>parseInt(s.replace(/[^\d]/g,'')));
-  return {base, bonuses};
 }
 
 // 計算某用戶在某則留言時的即時HP（依時間順序累計被打傷害）
@@ -747,7 +677,6 @@ async function doAutoRefresh(){
     allMsgs = await fetchAllResponses(numericId);
     hideLoading();
     const done = updateBattleDisplay();
-    refreshCharCards();
     if(done){
       autoActive=false;
       setStatus('所有怪物已死亡　自動刷新已停止');
@@ -798,12 +727,8 @@ async function startBattle(){
   document.getElementById('battleSection').classList.add('active');
   document.getElementById('manualBtn').disabled=false;
 
-  // 讀取角色編號輸入
-  charCodes = parseCharCodes(document.getElementById('charInput').value);
-
   buildBattleView();
   const done = updateBattleDisplay();
-  refreshCharCards();
 
   if(done){
     setStatus('所有怪物已死亡　自動刷新已停止');
@@ -828,7 +753,6 @@ async function manualRefresh(){
     allMsgs = await fetchAllResponses(numericId);
     hideLoading();
     updateBattleDisplay(true); // ignoreDeathStop=true，繼續累計所有傷害（可顯示負血值）
-    refreshCharCards();
     setStatus('已刷新　自動刷新已停止（重置後可重新啟動）');
   } catch(e){
     hideLoading();
@@ -870,11 +794,6 @@ function resetAll(){
   document.getElementById('battleSection').classList.remove('active');
   document.getElementById('battleBtn').disabled=false;
   document.getElementById('pieGrid').innerHTML='';
-  document.getElementById('charCardsGrid').innerHTML='';
-  document.getElementById('charCardsWrap').style.display='none';
-  document.getElementById('charInput').value='';
-  charCodes=[];
-  charEdits={};
   document.getElementById('manualBtn').disabled=false;
   setStatus('');
   clearErr();
@@ -889,195 +808,6 @@ function showLoading(msg){
 }
 function hideLoading(){
   document.getElementById('loading').classList.remove('active');
-}
-
-
-// ═══════════════════════════════════════════
-// 角色功能
-// ═══════════════════════════════════════════
-function parseCharCodes(val){
-  return (val||'').split(/[,，]/).map(s=>s.trim().toUpperCase()).filter(Boolean);
-}
-
-function loadCharEdits(){
-  const edits = {};
-  if(!plurkIdStr) return edits;
-  for(let i=0; i<localStorage.length; i++){
-    const k = localStorage.key(i);
-    if(k && k.startsWith('charedit_'+plurkIdStr+'_')){
-      edits[k] = localStorage.getItem(k);
-    }
-  }
-  return edits;
-}
-
-// 顏色用 charCode 產生漸層
-function codeToColor(code){
-  let h = 0;
-  for(const c of (code||'')) h = (h*31 + c.charCodeAt(0)) & 0xffff;
-  const hue = h % 360;
-  return `linear-gradient(135deg, hsl(${hue},55%,32%), hsl(${(hue+40)%360},65%,22%))`;
-}
-
-// 渲染留言內容（骰子高亮）
-function renderMsgContent(text){
-  let s = esc(text);
-  // 骰子 [dN:V]
-  s = s.replace(/\[d(\d+):(\d+)\]/g, '<span class="dice-tag">[d$1:$2]</span>');
-  // bzz red
-  s = s.replace(/\[bzz:2\]/g, '<span class="bzz-red">[bzz:紅]</span>');
-  s = s.replace(/\[bzz:(\w+)\]/g, '<span class="bzz-tag">[bzz:$1]</span>');
-  return s;
-}
-
-// 計算單則留言的攻擊輸出與被打傷害
-function calcMsgDamage(content){
-  let atk=0, def=0;
-  const callBuddy = content.includes('呼叫巴迪');
-  for(const line of content.split('\n')){
-    const sides = line.split(/[／\/\\＼]/);
-    if(sides.length < 2) continue;
-    const hasRed = /\[bzz:2\]/.test(line);
-    // C側判定紅色（A/B/C 格式，C含bzz:red）
-    const cSideRed = sides.length >= 3 && /\[bzz:2\]/.test(sides[2]);
-    const rA = calcSide(sides[0]);
-    const rB = calcSide(sides[1]);
-    if(!rA.hasUnknown && rA.hasDice){
-      atk += cSideRed ? rA.total*2 : rA.total;
-    }
-    if(!callBuddy && !rB.hasUnknown && rB.hasDice){
-      def += rB.total;
-    }
-  }
-  return {atk, def};
-}
-
-// 取得某用戶某則留言的實際內容（可能被人工編輯）
-function getMsgContent(msgId, origContent){
-  const k = eKey(plurkIdStr, msgId);
-  return charEdits[k] !== undefined ? charEdits[k] : origContent;
-}
-
-// 計算角色卡片資料
-function calcCharCard(code, msgs){
-  // 篩選包含此編號的留言（不分大小寫）
-  const codeUpper = code.toUpperCase();
-  const myMsgs = msgs.filter(m=>{
-    const c = getMsgContent(m.id, m.content).toUpperCase();
-    return c.includes(codeUpper);
-  });
-
-  let hp = null, totalAtk = 0;
-  const msgAlive = buildUserHpMap(); // 重用全域 userHp 計算
-  const allMsgsIdx = new Map(allMsgs.map((m,i)=>[m.id,i]));
-
-  let firstValidIdx = -1;
-  // 找第一則有效留言（此角色卡片的）
-  for(let i=0; i<myMsgs.length; i++){
-    if(firstValidIdx === -1) firstValidIdx = i;
-    break;
-  }
-
-  myMsgs.forEach((msg, idx)=>{
-    const content = getMsgContent(msg.id, msg.content);
-
-    if(idx === firstValidIdx){
-      // 第一則：從「目前HP：N」取起始值，含後面所有+數值
-      const hpInfo = extractHpBonus(content);
-      if(hpInfo.base !== null){
-        hp = hpInfo.base + hpInfo.bonuses.reduce((a,b)=>a+b, 0);
-      }
-    } else if(hp !== null){
-      const hpInfo = extractHpBonus(content);
-      if(hpInfo.base !== null){
-        const hpBonus = hpInfo.bonuses.reduce((a,b)=>a+b, 0);
-        // 判斷補血 or 裝備展示
-        if(hpBonus > 0 && Math.abs(hpInfo.base - hp) <= Math.abs(hpInfo.base + hpBonus - hp)){
-          hp += hpBonus; // 補血
-        } else {
-          hp += extractItemBonus(content); // 使用物品補血
-        }
-      } else {
-        hp += extractItemBonus(content);
-      }
-    }
-
-    // 計算本則攻擊輸出與被打傷害
-    const {atk, def} = calcMsgDamage(content);
-
-    // 有效輸出：只有角色存活時才計
-    const allIdx = allMsgsIdx.get(msg.id);
-    const alive = allIdx !== undefined ? (msgAlive.get(allIdx) !== false) : true;
-    if(alive) totalAtk += atk;
-
-    // 扣被打傷害
-    if(hp !== null) hp -= def;
-  });
-
-  return {code, msgs: myMsgs, hp, totalAtk};
-}
-
-// 渲染單張卡片留言列表
-function renderCardMsgs(cardEl, code, msgs){
-  const msgsDiv = cardEl.querySelector('.char-msgs');
-  msgsDiv.innerHTML = '';
-  msgs.forEach(msg=>{
-    const content = getMsgContent(msg.id, msg.content);
-    const div = document.createElement('div');
-    div.className = 'char-msg';
-    div.innerHTML = `<div class="char-msg-time">${esc(msg.posted_at||'')}</div>
-      <div class="char-msg-body" contenteditable="true" spellcheck="false">${renderMsgContent(content)}</div>`;
-    const body = div.querySelector('.char-msg-body');
-    // 雙擊啟動編輯已透過 contenteditable 直接支援
-    body.addEventListener('blur', ()=>{
-      const newText = body.innerText;
-      const k = eKey(plurkIdStr, msg.id);
-      if(newText !== msg.content){
-        charEdits[k] = newText;
-        localStorage.setItem(k, newText);
-      } else {
-        delete charEdits[k];
-        localStorage.removeItem(k);
-      }
-      // 重算卡片
-      refreshCharCards();
-    });
-    msgsDiv.appendChild(div);
-  });
-}
-
-// 建立/更新所有角色卡片
-function refreshCharCards(){
-  if(!charCodes.length){
-    document.getElementById('charCardsWrap').style.display='none';
-    return;
-  }
-  document.getElementById('charCardsWrap').style.display='block';
-  const grid = document.getElementById('charCardsGrid');
-  grid.innerHTML = '';
-
-  charCodes.forEach(code=>{
-    const {msgs, hp, totalAtk} = calcCharCard(code, allMsgs);
-    const dead = hp !== null && hp <= 0;
-
-    const card = document.createElement('div');
-    card.className = 'char-card';
-    card.innerHTML = `
-      <div class="char-card-header">
-        <div class="char-avatar" style="background:${codeToColor(code)}">${esc(code)}</div>
-        <div class="char-info">
-          <div class="char-code">${esc(code)}</div>
-          <div class="char-stats">
-            <span>目前HP：<span class="char-stat-val ${dead?'char-stat-dead':'char-stat-hp'}">${hp!==null?hp:'—'}</span></span>
-            <span>有效輸出：<span class="char-stat-val char-stat-dmg">${totalAtk}</span></span>
-            <span style="font-size:.7rem;color:var(--muted)">${msgs.length} 則留言</span>
-          </div>
-        </div>
-      </div>
-      <div class="char-msgs"></div>`;
-    renderCardMsgs(card, code, msgs);
-    grid.appendChild(card);
-  });
 }
 
 // ═══════════════════════════════════════════
