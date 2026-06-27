@@ -26,7 +26,7 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:1
 .hi{min-width:0}
 .page-title{font-size:.95rem;font-weight:700;letter-spacing:.05em;cursor:text;display:inline-block;line-height:1.4}
 .page-title:hover{color:var(--accent)}
-.sub{font-size:.72rem;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:6px}
+.sub{display:none}
 .url-display{color:var(--accent);cursor:pointer;border-bottom:1px dashed rgba(130,217,0,.4);transition:border-color .15s}
 .url-display:hover{border-bottom-color:var(--accent)}
 .url-hint{color:var(--muted);font-style:italic}
@@ -55,7 +55,7 @@ main{max-width:1000px;margin:0 auto;padding:28px 20px}
 .bfield label{font-size:.68rem;color:var(--muted);white-space:nowrap}
 .bfield input{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 3px;color:var(--text);font-size:.78rem;width:100%;text-align:center;outline:none}
 .bfield input:focus{border-color:var(--accent)}
-.boss-deduct{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--muted);width:100%;justify-content:center}
+.boss-deduct{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--muted);width:100%;justify-content:space-between}
 .boss-deduct input{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 6px;color:var(--text);font-size:.78rem;width:72px;text-align:center;outline:none}
 .boss-deduct input:focus{border-color:var(--accent)}
 .boss-actions{display:flex;gap:6px}
@@ -66,7 +66,7 @@ main{max-width:1000px;margin:0 auto;padding:28px 20px}
 /* ── URL 輸入區（初始） ── */
 .url-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:28px;display:flex;flex-direction:column;gap:12px;align-items:center;text-align:center}
 .url-section label{font-size:.8rem;font-weight:600;color:var(--muted)}
-.url-big{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:inherit;font-size:.88rem;outline:none;width:100%;max-width:520px}
+.url-big{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:inherit;font-size:.88rem;outline:none;width:100%;max-width:740px}
 .url-big:focus{border-color:var(--accent)}
 .url-hint-text{font-size:.72rem;color:var(--muted)}
 
@@ -106,10 +106,10 @@ main{max-width:1000px;margin:0 auto;padding:28px 20px}
 .err-banner.active{display:block}
 
 /* ── 說明區 ── */
-.intro-section{display:flex;align-items:center;gap:32px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 28px;margin-bottom:24px;flex-wrap:wrap}
-.intro-logo{flex-shrink:0;width:220px}
+.intro-section{display:flex;align-items:center;gap:32px;background:transparent;border:none;padding:16px 4px;margin-bottom:16px;flex-wrap:wrap}
+.intro-logo{flex-shrink:0;width:400px}
 .intro-logo img{width:100%;height:auto;display:block}
-.intro-text{flex:1;min-width:200px;display:flex;flex-direction:column;gap:8px}
+.intro-text{flex:1;min-width:200px;display:flex;flex-direction:column;gap:8px;padding-left:24px}
 .intro-text p{font-size:.82rem;color:#82D900;line-height:1.7;margin:0}
 </style>
 </head>
@@ -302,12 +302,13 @@ function renderBossSetup(){
         <div class="bfield"><label>單體HP</label><input type="number" value="${esc(b.hpEach)}" oninput="setF(${i},'hpEach',this.value)"></div>
       </div>
       <div class="boss-deduct">
-        <div class="boss-actions">
+        <div class="boss-actions" style="flex:0 0 auto;min-width:0">
           <button class="icon-btn icon-btn-del" onclick="removeBoss(${i})" title="刪除">－</button>
           <button class="icon-btn icon-btn-add" onclick="addBoss(${i})"    title="新增">＋</button>
         </div>
-        <label>NPC預扣</label>
-        <input type="number" value="${esc(b.deduct||'')}" oninput="setF(${i},'deduct',this.value)">
+        <div style="flex:1"></div>
+        <label style="font-size:.68rem;color:var(--muted);white-space:nowrap">NPC預扣</label>
+        <input type="number" value="${esc(b.deduct||'')}" oninput="setF(${i},'deduct',this.value)" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 3px;color:var(--text);font-size:.78rem;width:72px;text-align:center;outline:none">
       </div>
     </div>
   `).join('');
@@ -448,6 +449,86 @@ function calcSide(expr){
   return {total,hasUnknown,hasDice};
 }
 
+// 從留言內容取出「目前HP：N」的數值
+function extractCurrentHp(content){
+  const m = /目前HP[：:]\s*(-?\d+)/.exec(content);
+  return m ? parseInt(m[1]) : null;
+}
+
+// 取出使用物品行的補血加值
+function extractItemBonus(content){
+  let bonus = 0;
+  const itemMatch = /使用物品[：:]([\s\S]*?)(?=\n攻擊[：:]|$)/.exec(content);
+  if(itemMatch){
+    (itemMatch[1].match(/[+＋](\d+)/g)||[]).forEach(mm=>{
+      const n = parseInt(mm.replace(/[^\d]/g,''));
+      if(!isNaN(n)) bonus += n;
+    });
+  }
+  return bonus;
+}
+
+// 計算某用戶在某則留言時的即時HP（依時間順序累計被打傷害）
+function buildUserHpMap(){
+  // 依 username 分組，按留言順序排列
+  const byUser = {};
+  for(const msg of allMsgs){
+    const u = msg.username;
+    if(!byUser[u]) byUser[u] = [];
+    byUser[u].push(msg);
+  }
+
+  // 每位用戶：計算每則留言後的即時HP
+  // 回傳 Map<msgIndex, isAlive>（allMsgs 的 index）
+  const msgAlive = new Map();
+  const allMsgsIdx = new Map(allMsgs.map((m,i)=>[m,i]));
+
+  for(const [username, msgs] of Object.entries(byUser)){
+    let userHp = null;
+
+    for(let i=0; i<msgs.length; i++){
+      const msg = msgs[i];
+      const msgIdx = allMsgsIdx.get(msg);
+      const hpInMsg = extractCurrentHp(msg.content);
+
+      if(i === 0){
+        // 第一則：取目前HP作為起始值
+        if(hpInMsg !== null) userHp = hpInMsg;
+      } else if(userHp !== null && hpInMsg !== null){
+        // 後續：判斷HP行的+數值是補血還是展示
+        const bonuses = (msg.content.match(/目前HP[：:][^\n]*/) || [''])[0]
+          .replace(/目前HP[：:]\s*-?\d+/, '')
+          .match(/[+＋]\s*(\d+)/g) || [];
+        const hpBonus = bonuses.reduce((a,b)=>a+parseInt(b.replace(/[^\d]/g,'')),0);
+        if(hpBonus > 0 && Math.abs(hpInMsg - userHp) <= Math.abs(hpInMsg + hpBonus - userHp)){
+          userHp += hpBonus; // 補血
+        } else {
+          userHp += extractItemBonus(msg.content);
+        }
+      }
+
+      // 這則留言送出時，該用戶是否存活（HP > 0）
+      // 注意：先判斷存活狀態，再扣本則被打傷害
+      const aliveBeforeHit = userHp === null || userHp > 0;
+      msgAlive.set(msgIdx, aliveBeforeHit);
+
+      // 扣除本則被打的傷害（B側，所有骰面）
+      if(userHp !== null){
+        for(const line of msg.content.split('\n')){
+          const sides = line.split(/[／\/\\＼]/);
+          if(sides.length < 2) continue;
+          // B側有骰子才算被打
+          const bHasDice = /\[d\d+:/.test(sides[1]);
+          if(!bHasDice) continue;
+          const rB = calcSide(sides[1]);
+          if(!rB.hasUnknown && rB.hasDice) userHp -= rB.total;
+        }
+      }
+    }
+  }
+  return msgAlive;
+}
+
 function extractAttacksForFaces(content, facesNorm){
   const results=[];
   for(const line of content.split('\n')){
@@ -468,15 +549,21 @@ function computeBossHp(b, ignoreDeathStop){
   const hpEach = parseInt(b.hpEach)||0;
   const deduct = parseInt(b.deduct)||0;
   if(!norm||!count||!hpEach) return null;
+
+  // 先建立每則留言的用戶存活狀態
+  const msgAlive = buildUserHpMap();
+
   let hp   = count*hpEach - deduct;
   let dead = false;
-  for(const msg of allMsgs){
-    if(dead && !ignoreDeathStop) break;
+  allMsgs.forEach((msg, idx)=>{
+    if(dead && !ignoreDeathStop) return;
+    // 若該用戶送出這則留言時已死亡，跳過攻擊計算
+    if(msgAlive.get(idx) === false) return;
     for(const dmg of extractAttacksForFaces(msg.content, norm)){
       hp -= dmg;
       if(hp <= 0 && !dead) dead = true;
     }
-  }
+  });
   return hp;
 }
 
