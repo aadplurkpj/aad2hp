@@ -298,9 +298,9 @@ function renderBossSetup(){
     <div class="boss-col">
       <div class="boss-col-name" ondblclick="editBossName(${i},this)">${esc(b.name)}</div>
       <div class="boss-fields">
+        <div class="bfield"><label>單體HP</label><input type="number" value="${esc(b.hpEach)}" oninput="setF(${i},'hpEach',this.value)"></div>
         <div class="bfield"><label>骰面</label><input type="text"   value="${esc(b.faces)}"  placeholder="d12" oninput="setF(${i},'faces',this.value)"></div>
         <div class="bfield"><label>數量</label><input type="number" value="${esc(b.count)}"   oninput="setF(${i},'count',this.value)"></div>
-        <div class="bfield"><label>單體HP</label><input type="number" value="${esc(b.hpEach)}" oninput="setF(${i},'hpEach',this.value)"></div>
       </div>
       <div class="boss-deduct">
         <div class="boss-actions" style="flex:0 0 auto;min-width:0">
@@ -308,7 +308,7 @@ function renderBossSetup(){
           <button class="icon-btn icon-btn-add" onclick="addBoss(${i})"    title="新增">＋</button>
         </div>
         <div style="flex:1"></div>
-        <label style="font-size:.68rem;color:var(--muted);white-space:nowrap">NPC預扣</label>
+        <label style="font-size:.68rem;color:var(--muted);white-space:nowrap">NPC幫打</label>
         <input type="number" value="${esc(b.deduct||'')}" oninput="setF(${i},'deduct',this.value)" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 3px;color:var(--text);font-size:.78rem;width:72px;text-align:center;outline:none">
       </div>
     </div>
@@ -622,7 +622,7 @@ function buildBattleView(){
     const hpEach = parseInt(b.hpEach)||0;
     const deduct = parseInt(b.deduct)||0;
     if(!norm||!count||!hpEach) return;
-    maxHpMap[i] = count*hpEach - deduct;
+    maxHpMap[i] = count*hpEach;
     const col = document.createElement('div');
     col.className='pie-col'; col.id='pieCol'+i;
     col.innerHTML=`
