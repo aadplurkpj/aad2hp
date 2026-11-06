@@ -183,6 +183,7 @@ const WORKER_URL = 'https://aad2026hp.aadop2021.workers.dev';
 
 let plurkIdStr  = '';   // base36 string
 let numericId   = 0;
+let lastFetchInfo = '';
 let allMsgs     = [];   // [{content, posted_at}]
 let bossData    = [];
 let maxHpMap    = {};
@@ -358,7 +359,10 @@ async function fetchAllResponses(numId, existing){
   }
   const msgs = existing ? existing.slice() : [];   // 增量抓取：沿用已有留言，只抓新增的
   let fromId = msgs.length;
-  const seen = new Set(msgs.map(m=>m.id).filter(x=>x!==undefined));  // 以留言 ID 去重，避免重複計算傷害
+  // 以「發文時間+內容」去重（不依賴 Worker 回傳的 ID，避免同一則留言被重複計算傷害）
+  const keyOf = m => (m.posted_at||'') + '|' + (m.content||'');
+  const seen = new Set(msgs.map(keyOf));
+  const startLen = msgs.length;
 
   while(true){
     const url = `${WORKER_URL}/responses?plurk_id=${numId}&from_response_id=${fromId}`;
@@ -375,15 +379,16 @@ async function fetchAllResponses(numId, existing){
 
     let newCount = 0;
     for(const resp of responses){
-      const rid = resp.id;
-      if(seen.has(rid)) continue;
-      seen.add(rid);
-      newCount++;
-      msgs.push({
-        id:        rid,
+      const m = {
+        id:        resp.id,
         content:   parseContent(resp.content || ''),
         posted_at: resp.posted || '',
-      });
+      };
+      const k = keyOf(m);
+      if(seen.has(k)) continue;
+      seen.add(k);
+      newCount++;
+      msgs.push(m);
     }
 
     document.getElementById('loadingMsg').textContent =
@@ -394,6 +399,8 @@ async function fetchAllResponses(numId, existing){
     fromId = msgs.length;  // Plurk 的 from_response 是「已讀筆數」偏移量，不是留言 ID
     await sleep(400);
   }
+  if(msgs.length>startLen) console.log('[刷新] 新增留言', msgs.slice(startLen).map(m=>({id:m.id,posted:m.posted_at,text:m.content.slice(0,40)})));
+  lastFetchInfo = `共 ${msgs.length} 則，本次新增 ${msgs.length-startLen} 則`;
   return msgs;
 }
 
@@ -684,7 +691,7 @@ async function doAutoRefresh(){
       autoActive=false;
       setStatus('所有怪物已死亡　自動刷新已停止');
     } else {
-      setStatus('<b>自動刷新中</b>　預設每 1 分鐘自動刷新直到所有怪物死亡');
+      setStatus('<b>自動刷新中</b>　預設每 1 分鐘自動刷新直到所有怪物死亡　'+lastFetchInfo);
       scheduleNext();
     }
   } catch(e){
@@ -738,7 +745,7 @@ async function startBattle(){
     setStatus('所有怪物已死亡　自動刷新已停止');
   } else {
     autoActive=true;
-    setStatus('<b>自動刷新中</b>　預設每 1 分鐘自動刷新直到所有怪物死亡');
+    setStatus('<b>自動刷新中</b>　預設每 1 分鐘自動刷新直到所有怪物死亡　'+lastFetchInfo);
     scheduleNext();
   }
 }
