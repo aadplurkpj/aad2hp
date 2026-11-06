@@ -358,7 +358,7 @@ async function fetchAllResponses(numId, existing){
   }
   const msgs = existing ? existing.slice() : [];   // 增量抓取：沿用已有留言，只抓新增的
   let fromId = msgs.length;
-  const seen = new Set();
+  const seen = new Set(msgs.map(m=>m.id).filter(x=>x!==undefined));  // 以留言 ID 去重，避免重複計算傷害
 
   while(true){
     const url = `${WORKER_URL}/responses?plurk_id=${numId}&from_response_id=${fromId}`;
@@ -380,6 +380,7 @@ async function fetchAllResponses(numId, existing){
       seen.add(rid);
       newCount++;
       msgs.push({
+        id:        rid,
         content:   parseContent(resp.content || ''),
         posted_at: resp.posted || '',
       });
