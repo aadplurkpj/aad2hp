@@ -352,12 +352,12 @@ function clearErr(){ document.getElementById('errBanner').classList.remove('acti
 // ═══════════════════════════════════════════
 // Fetch via JSONP（不需要任何 proxy，直接繞過 CORS）
 // ═══════════════════════════════════════════
-async function fetchAllResponses(numId){
+async function fetchAllResponses(numId, existing){
   if(!WORKER_URL || WORKER_URL === 'YOUR_WORKER_URL_HERE'){
     throw new Error('請先在 HTML 檔案中設定 WORKER_URL（Cloudflare Worker 網址）');
   }
-  const msgs = [];
-  let fromId = 0;
+  const msgs = existing ? existing.slice() : [];   // 增量抓取：沿用已有留言，只抓新增的
+  let fromId = msgs.length;
   const seen = new Set();
 
   while(true){
@@ -666,28 +666,31 @@ function stopAuto(){
   if(autoTimer){ clearTimeout(autoTimer); autoTimer=null; }
 }
 
-function scheduleNext(){
-  autoTimer = setTimeout(doAutoRefresh, 10000);
+function scheduleNext(ms){
+  // 預設 60 秒，加上 ±10 秒隨機偏移，避免大量使用者同一秒一起請求
+  const base = ms || 60000;
+  autoTimer = setTimeout(doAutoRefresh, base + (Math.random()*20000 - 10000));
 }
 
 async function doAutoRefresh(){
   if(!autoActive) return;
   setStatus('刷新中…');
   try{
-    allMsgs = await fetchAllResponses(numericId);
+    allMsgs = await fetchAllResponses(numericId, allMsgs);
     hideLoading();
     const done = updateBattleDisplay();
     if(done){
       autoActive=false;
       setStatus('所有怪物已死亡　自動刷新已停止');
     } else {
-      setStatus('<b>自動刷新中</b>　預設每 10 秒自動刷新直到所有怪物死亡');
+      setStatus('<b>自動刷新中</b>　預設每 1 分鐘自動刷新直到所有怪物死亡');
       scheduleNext();
     }
   } catch(e){
     hideLoading();
-    setStatus('刷新失敗：'+e.message, true);
-    scheduleNext(); // 繼續嘗試
+    const limited = /rate-limit/i.test(e.message);
+    setStatus((limited?'請求過於頻繁，約 2 分鐘後自動重試　':'刷新失敗：')+e.message, true);
+    scheduleNext(limited?120000:60000); // 繼續嘗試（限流時放慢）
   }
 }
 
@@ -714,7 +717,7 @@ async function startBattle(){
   document.getElementById('battleBtn').disabled=true;
 
   try{
-    allMsgs = await fetchAllResponses(numericId);
+    allMsgs = await fetchAllResponses(numericId, []);
   } catch(e){
     hideLoading();
     document.getElementById('battleBtn').disabled=false;
@@ -734,7 +737,7 @@ async function startBattle(){
     setStatus('所有怪物已死亡　自動刷新已停止');
   } else {
     autoActive=true;
-    setStatus('<b>自動刷新中</b>　預設每 10 秒自動刷新直到所有怪物死亡');
+    setStatus('<b>自動刷新中</b>　預設每 1 分鐘自動刷新直到所有怪物死亡');
     scheduleNext();
   }
 }
@@ -750,7 +753,7 @@ async function manualRefresh(){
   showLoading('手動刷新中…');
 
   try{
-    allMsgs = await fetchAllResponses(numericId);
+    allMsgs = await fetchAllResponses(numericId, allMsgs);
     hideLoading();
     updateBattleDisplay(true); // ignoreDeathStop=true，繼續累計所有傷害（可顯示負血值）
     setStatus('已刷新　自動刷新已停止（重置後可重新啟動）');
