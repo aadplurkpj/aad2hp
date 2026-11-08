@@ -184,6 +184,7 @@ const WORKER_URL = 'https://aad2026hp.aadop2021.workers.dev';
 let plurkIdStr  = '';   // base36 string
 let numericId   = 0;
 let lastFetchInfo = '';
+let allMsgsPlurk = 0;   // allMsgs 屬於哪一篇噗文（失敗後重試時沿用已抓到的進度）
 let allMsgs     = [];   // [{content, posted_at}]
 let bossData    = [];
 let maxHpMap    = {};
@@ -343,12 +344,17 @@ function removeBoss(i){
 // ═══════════════════════════════════════════
 // Error banner
 // ═══════════════════════════════════════════
-function showErr(msg){
+let errTimer = null;
+function showErr(msg, sticky){
   const el = document.getElementById('errBanner');
   el.textContent = msg; el.classList.add('active');
-  setTimeout(()=>el.classList.remove('active'), 5000);
+  if(errTimer){ clearTimeout(errTimer); errTimer = null; }
+  if(!sticky) errTimer = setTimeout(()=>el.classList.remove('active'), 5000);   // sticky=true 時不自動消失
 }
-function clearErr(){ document.getElementById('errBanner').classList.remove('active'); }
+function clearErr(){
+  if(errTimer){ clearTimeout(errTimer); errTimer = null; }
+  document.getElementById('errBanner').classList.remove('active');
+}
 
 // ═══════════════════════════════════════════
 // Fetch via JSONP（不需要任何 proxy，直接繞過 CORS）
@@ -364,6 +370,7 @@ async function fetchAllResponses(numId, existing){
   const seen = new Set(msgs.map(keyOf));
   const startLen = msgs.length;
 
+  try{
   while(true){
     const url = `${WORKER_URL}/responses?plurk_id=${numId}&from_response_id=${fromId}`;
     const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
@@ -397,8 +404,9 @@ async function fetchAllResponses(numId, existing){
     if(responses.length < 20) break;
     if(newCount === 0) break;
     fromId = msgs.length;  // Plurk 的 from_response 是「已讀筆數」偏移量，不是留言 ID
-    await sleep(400);
+    await sleep(800);
   }
+  }catch(e){ e.partial = msgs; throw e; }   // 中途失敗時，把已抓到的留言一併帶出，避免下次重抓
   if(msgs.length>startLen) console.log('[刷新] 新增留言', msgs.slice(startLen).map(m=>({id:m.id,posted:m.posted_at,text:m.content.slice(0,40)})));
   lastFetchInfo = `共 ${msgs.length} 則，本次新增 ${msgs.length-startLen} 則`;
   return msgs;
@@ -696,6 +704,7 @@ async function doAutoRefresh(){
     }
   } catch(e){
     hideLoading();
+    if(e.partial){ allMsgs = e.partial; updateBattleDisplay(); }
     const limited = /rate-limit/i.test(e.message);
     setStatus((limited?'請求過於頻繁，約 2 分鐘後自動重試　':'刷新失敗：')+e.message, true);
     scheduleNext(limited?120000:60000); // 繼續嘗試（限流時放慢）
@@ -725,11 +734,17 @@ async function startBattle(){
   document.getElementById('battleBtn').disabled=true;
 
   try{
-    allMsgs = await fetchAllResponses(numericId, []);
+    allMsgs = await fetchAllResponses(numericId, allMsgsPlurk===numericId ? allMsgs : []);
+    allMsgsPlurk = numericId;
   } catch(e){
     hideLoading();
     document.getElementById('battleBtn').disabled=false;
-    showErr('無法抓取留言：'+e.message);
+    if(e.partial){ allMsgs = e.partial; allMsgsPlurk = numericId; }
+    if(/rate-limit/i.test(e.message)){
+      showErr(`請求過於頻繁，已保留目前抓到的 ${allMsgs.length} 則留言。請等 1～2 分鐘後再按「開始對戰」。`, true);   // 一直顯示，直到再按「開始對戰」（startBattle 開頭會呼叫 clearErr）
+    } else {
+      showErr('無法抓取留言：'+e.message);
+    }
     return;
   }
   hideLoading();
@@ -767,6 +782,7 @@ async function manualRefresh(){
     setStatus('已刷新　自動刷新已停止（重置後可重新啟動）');
   } catch(e){
     hideLoading();
+    if(e.partial){ allMsgs = e.partial; updateBattleDisplay(true); }
     setStatus('刷新失敗：'+e.message, true);
   }
   btn.disabled=false;
@@ -777,7 +793,7 @@ async function manualRefresh(){
 // ═══════════════════════════════════════════
 function resetAll(){
   stopAuto();
-  allMsgs=[];
+  allMsgs=[]; allMsgsPlurk=0;
 
   // 清除 localStorage
   localStorage.removeItem(bKey());
